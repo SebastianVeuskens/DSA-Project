@@ -1,0 +1,33 @@
+# Load required libraries
+library(survival)
+library(survminer)
+library(ggpubr)
+
+# Read data
+heart_failure <- read.csv("heart_failure_clinical_records_dataset.csv")
+
+# Do graphs and exploratory analysis
+ggsurvplot(survfit(Surv(time, DEATH_EVENT) ~ 1, data = heart_failure), 
+           xlab = "Time (days)", ylab = "Survival probability")
+
+# Univariate analysis
+fit_uni <- coxph(Surv(time, DEATH_EVENT) ~ age, data = heart_failure)
+summary(fit_uni)
+ggforest(fit_uni)
+
+# Multivariate analysis (Cox)
+fit_multi <- coxph(Surv(time, DEATH_EVENT) ~ age + anaemia + creatinine_phosphokinase + diabetes + ejection_fraction + high_blood_pressure + platelets + serum_creatinine + serum_sodium + sex + smoking, data = heart_failure)
+summary(fit_multi)
+ggforest(fit_multi)
+
+# Evaluate proportional hazard
+cox.zph(fit_multi)
+
+# Adapting and improving model
+fit_multi_new <- coxph(Surv(time, DEATH_EVENT) ~ age + anaemia + creatinine_phosphokinase + diabetes + ejection_fraction + high_blood_pressure + platelets + serum_creatinine + serum_sodium + sex + smoking + I(age^2) + I(ejection_fraction^2), data = heart_failure)
+summary(fit_multi_new)
+ggforest(fit_multi_new)
+
+# Parametric models (Weibull)
+fit_weibull <- survreg(Surv(time, DEATH_EVENT) ~ age + anaemia + creatinine_phosphokinase + diabetes + ejection_fraction + high_blood_pressure + platelets + serum_creatinine + serum_sodium + sex + smoking, data = heart_failure, dist = "weibull")
+summary(fit_weibull)
