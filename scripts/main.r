@@ -6,6 +6,7 @@ library(survival)
 library(ggplot2)
 library(rstudioapi)
 library(DescTools)
+library(survminer)
 
 # Load data
 setwd(file_path <- dirname(rstudioapi::getSourceEditorContext()$path))
@@ -22,7 +23,7 @@ heart_data$Anaemia <- as.factor(heart_data$Anaemia)
 attach(heart_data) 
 
 heart_data$Age_group <- cut(Age, quantile(Age))
-# TODO: Should we continue with all the variables below or just leave them out because it is too much? 
+# SOLVED: Should we continue with all the variables below or just leave them out because it is too much? -> Continue with all of them 
 heart_data$Ejection.Fraction_group <- cut(Ejection.Fraction, quantile(Ejection.Fraction))
 heart_data$Sodium_group <- cut(Sodium, quantile(Sodium))
 heart_data$Creatinine_group <- cut(Creatinine, quantile(Creatinine))
@@ -94,7 +95,7 @@ for(i in c(3:7, (ncol(heart_data) - 5):ncol(heart_data))){
     legend("topright", title= colnames(heart_data)[i], legend = levels(heart_data[,i]), col=1:nlevels(heart_data[,i]), lty=1)
 }
 
-# TODO: Add grouped variables in both tests 
+# SOLVED: Add grouped variables in both tests -> Or we leave it as it is
 # Logrank test ####
 survdiff(surv_obj~Gender)
 survdiff(surv_obj~Smoking)
@@ -109,13 +110,12 @@ survdiff(surv_obj~Diabetes, rho = 1)
 survdiff(surv_obj~BP, rho = 1) # significant
 survdiff(surv_obj~Anaemia, rho = 1) # almost significant
 
-ggforest(cox_all, data = heart_data)
 ####################################
 ####### COMMENT ####################
 # All Covariates are not significant except BP, although Anaemia shows aberrant behaviour that is almost significant 
 
 # KM versus COX fit #### 
-# TODO: We could add some more variables with the same analysis here 
+# SOLVED: We could add some more variables with the same analysis here -> But I think it is enough this way 
 plot(survfit(surv_obj ~ BP, data=heart_data), col=1:nlevels(BP)) # KM plot
 lines(survfit(coxph(surv_obj ~ BP, data=heart_data), newdata=data.frame(BP=c(0, 1)),se.fit=F), col=1:nlevels(BP), lty=2) # Cox predicted
 legend("bottomright", title= "BP status", legend = levels(BP), col=1:nlevels(BP), lty=1)
@@ -135,6 +135,8 @@ legend("bottomright", title= "Anaemia status", legend = levels(Anaemia), col=1:n
 cox_all <- coxph((surv_obj ~ Age + Ejection.Fraction + Sodium + Creatinine + Pletelets + CPK + Gender + Smoking + Diabetes + BP + Anaemia), method = "breslow") # breslow is Wilcoxon test
 cox_all 
 
+ggforest(cox_all, data = heart_data)
+
 plot(survfit(cox_all), main = "cph model", xlab="Days")
 lines(result_simple, col="grey")
 
@@ -142,12 +144,13 @@ update(cox_all, .~. - Pletelets)
 update(cox_all, .~. - Pletelets - Smoking)
 update(cox_all, .~. - Pletelets - Smoking - Diabetes)
 update(cox_all, .~. - Pletelets - Smoking - Diabetes - Gender)
-update(cox_all, .~. - Pletelets - Smoking - Diabetes - Gender)
 
 cox_reduced <- update(cox_all, .~. - Pletelets - Smoking - Diabetes - Gender)
 
-# TODO: Should we do the PH test on the cox_all or the cox_reduced data set (makes sense on all, but analysis outline says reduced)
-test_ph_reduced <- cox.zph(cox_reduced, transform="identity", terms = F) # FIXME: Is this the right way to test for ph? What does the identity keyword mean? 
+# SOLVED: Should we do the PH test on the cox_all or the cox_reduced data set (makes sense on all, but analysis outline says reduced) -> We can choose, he recommended both 
+test_ph_reduced <- cox.zph(cox_reduced, transform="identity", terms = F) 
+test_ph_reduced # Only Ejection.Fraction shows inconsistent behaviour for the ph assumption
+
 for (i in 1:length(test_ph_reduced)) {
     plot(test_ph_reduced[i])
 }
@@ -161,12 +164,29 @@ for (i in 1:length(test_ph_reduced)) {
 # BP shaped as wave 
 # Anaemia slump at beginning, otherwise straight 
 
+test_ph_reduced <- cox.zph(cox_reduced, transform="log", terms = F)
+test_ph_reduced # Only Ejection.Fraction shows inconsistent behaviour for the ph assumption, but it is not significant anymore 
+
+for (i in 1:length(test_ph_reduced)) {
+    plot(test_ph_reduced[i])
+}
+
+
 # COX model with time varying coefficients  
-# TODO: Which variables should we include here? 
-cox_time <- coxph((surv_obj ~ Age + Gender + Smoking + Diabetes + BP + Anaemia + tt(as.numeric(BP)) + tt(as.numeric(Anaemia)) + tt(as.numeric(Gender)) + tt(as.numeric(Diabetes)) + tt(Age)), method = "breslow", data = heart_data, tt = function(x, t, ...) x * t)
-# cox_time <- coxph((surv_obj ~ Age + Ejection.Fraction + Sodium + Creatinine + Pletelets + CPK + Gender + Smoking + Diabetes + BP + Anaemia + tt(as.numeric(BP)) + tt(as.numeric(Anaemia)) + tt(as.numeric(Gender)) + tt(as.numeric(Diabetes)) + tt(Age) + tt(Ejection.Fraction) + tt(Sodium) + tt(Creatinine) + tt(Pletelets) + tt(CPK)), method = "breslow", data = heart_data, tt = function(x, t, ...) x * t)
+# SOLVED: Which variables should we include here? -> All, but only Ejection.Fraction shows changing behaviour over time 
+cox_time <- coxph(surv_obj ~ Age + Gender + Smoking + Diabetes + BP + Anaemia +tt(Ejection.Fraction), method = "breslow", data = heart_data, tt = function(x, t, ...) x * t)
 cox_time 
 
+cox_time <- coxph(surv_obj ~ Age + Gender + Smoking + Diabetes + BP + Anaemia +tt(Ejection.Fraction), method = "breslow", data = heart_data, tt = function(x, t, ...) x * log(t))
+cox_time 
+
+# Reduce time-dependent model #### 
+update(cox_time, .~. - Smoking)
+update(cox_time, .~. - Smoking - Diabetes)
+update(cox_time, .~. - Smoking - Diabetes - Gender)
+update(cox_time, .~. - Smoking - Diabetes - Gender - Anaemia)
+
+cox_time_reduced <- update(cox_time, .~. - Smoking - Diabetes - Gender - Anaemia)
 
 # Test linearity ####
 
@@ -187,6 +207,4 @@ log_2 <- cox_time_reduced$loglik
 
 # Likelihood ratio test statistics
 -2*diff(log_1)
--2*diff(log_2)
-
-# TODO: Lets not include anything with mfp 
+-2*diff(log_2) 
