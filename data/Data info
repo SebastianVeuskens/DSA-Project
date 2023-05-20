@@ -1,0 +1,9 @@
+This study was focused on survival analysis of heart failure patients who were admitted to Institute of Cardiology and Allied hospital Faisalabad-Pakistan during April-December (2015).
+Data:
+
+The dataset contains cardiovascular medical records taken from 299 patients. The patient cohort comprised of 105 women and 194 men between 40 and 95 years in age. All patients in the cohort were diagnosed with the systolic dysfunction of the left ventricle and had previous history of heart failures. As a result of their previous history every patient was classified into either class III or class IV of New York Heart Association (NYHA) classification for various stages of heart failure.
+
+Follow up time was 4–285 days with an average of 130 days. Disease was diagnosed by cardiac echo report or notes written by physician. Age, serum sodium, serum creatinine, gender, smoking, Blood Pressure (BP), Ejection Fraction (EF), anemia, platelets, Creatinine Phosphokinase (CPK) and diabetes were considered as potential variables explaining mortality caused by CHD. Age, serum sodium and CPK are continuous variables whereas EF, serum creatinine and platelets were taken as categorical variables. EF was divided into three levels (i.e. EF≤30, 30<EF≤45 and EF>45) and platelets was also divided into three level on the basis of quartiles. Serum creatinine greater than its normal level (1.5) is an indicator of renal dysfunction. Its effect on mortality was studied as creatinine >1.5 vs ≤1.5. Anemia in patients was assessed by their haematocrit level. Following McClellan et al. [4] the patients with haematocrit less than 36 (minimum normal level of haematocrit) were taken as anemic. The information related to risk factors were taken from blood reports while smoking status and blood pressure were taken from physician’s notes.
+
+
+link: https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0181001
