@@ -192,12 +192,37 @@ cox_time_reduced <- update(cox_time, .~. - Smoking - Diabetes - Gender - Anaemia
 
 # Martingale residuals 
 # TODO: They seem all quite non-linear, use fixes as described in lecture 5.5 
-mart_res_reduced <- residuals(cox_reduced) 
+# SOLVE: Using fractional polynomials
+mart_res_reduced <- residuals(cox_reduced, type = "martingale") 
 scatter.smooth(mart_res_reduced ~ Age)
 scatter.smooth(mart_res_reduced ~ Ejection.Fraction)
 scatter.smooth(mart_res_reduced ~ Sodium)
 scatter.smooth(mart_res_reduced ~ Creatinine)
 scatter.smooth(mart_res_reduced ~ CPK)
+
+#### Deviance residuals (Can help to identify outliers (subjects with poor fit))
+### Ejection.Fraction, Sodium and Creatine have a strange behaviour
+
+dev_res_reduced <- residuals(cox_reduced, type = "deviance") 
+s <- cox_all_mfp2$linear.predictors
+plot(s,dev_res_reduced)
+abline(h=2, lty=3)
+
+###Solving non-linearity in Age-Ejection.Fraction,Sodium,Creatinine and CPK using Fractional polynomials:
+# The results tells that the variables Ejection.Fraction should be added to the model with a negative power of -2 
+# and the variable Creatinine with a negative power of -1,
+# the other variables are okay with just the linear form
+
+cox_all_mfp2=mfp(surv_obj~ fp(Age)+fp(Ejection.Fraction)+fp(Sodium)+fp(Creatinine)+fp(CPK)+ Gender + Smoking + Diabetes + BP + Anaemia, 
+                 family=cox, method="breslow",verbose=T, select=1, alpha=0.05, data=heart_data)
+
+
+
+
+
+
+
+
 
 # Compare models and choose best one #### 
 
@@ -208,3 +233,40 @@ log_2 <- cox_time_reduced$loglik
 # Likelihood ratio test statistics
 -2*diff(log_1)
 -2*diff(log_2) 
+
+
+######classical Parametric models:
+#########################################################
+###TODO: I just try with classicals Weibull, Exp and log-normal models. I dont know if we should try with others
+### TODO: describe the hazard fuction of the selected model
+##I used AIC to compare
+## Exp has the lowest AIC
+# install flexsurv package
+
+# Fit Weibull model
+weibull_model <- flexsurvreg(surv_obj ~ Age + Ejection.Fraction + Sodium + Creatinine + Pletelets + CPK + Gender + Smoking + Diabetes + BP + Anaemia, data = heart_data, dist = "weibullPH")
+weibull_model
+plot(weibull_model,type="hazard")
+# Fit exponential model
+exp_model <- flexsurvreg(surv_obj ~ Age + Ejection.Fraction + Sodium + Creatinine + Pletelets + CPK + Gender + Smoking + Diabetes + BP + Anaemia, data = heart_data, dist = "exponential")
+exp_model
+plot(exp_model,type="hazard")
+
+# Fit log-normal model
+lognormal_model <- flexsurvreg(surv_obj ~ Age + Ejection.Fraction + Sodium + Creatinine + Pletelets + CPK + Gender + Smoking + Diabetes + BP + Anaemia, data = heart_data, dist = "lognormal")
+lognormal_model
+plot(lognormal_model,type="hazard")
+
+# Compare models using AIC
+AIC(weibull_model, exp_model, lognormal_model)
+
+# Compare models using BIC
+BIC(weibull_model, exp_model, lognormal_model)
+
+
+# Select the model with the lowest AIC
+best_model <- exp_model
+
+
+
+
