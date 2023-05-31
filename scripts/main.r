@@ -13,7 +13,6 @@ setwd(file_path <- dirname(rstudioapi::getSourceEditorContext()$path))
 
 heart_data <- read.csv("../data/S1Data.csv")
 
-
 heart_data$Gender <- as.factor(heart_data$Gender)
 heart_data$Smoking <- as.factor(heart_data$Smoking)
 heart_data$Diabetes <- as.factor(heart_data$Diabetes)
@@ -22,13 +21,16 @@ heart_data$Anaemia <- as.factor(heart_data$Anaemia)
 
 attach(heart_data) 
 
-heart_data$Age_group <- cut(Age, quantile(Age))
+heart_data$Age_group <- cut(Age, quantile(Age), include.lowest = TRUE)
 # SOLVED: Should we continue with all the variables below or just leave them out because it is too much? -> Continue with all of them 
-heart_data$Ejection.Fraction_group <- cut(Ejection.Fraction, quantile(Ejection.Fraction))
-heart_data$Sodium_group <- cut(Sodium, quantile(Sodium))
-heart_data$Creatinine_group <- cut(Creatinine, quantile(Creatinine))
-heart_data$Pletelets_group <- cut(Pletelets, quantile(Pletelets))
-heart_data$CPK_group <- cut(CPK, quantile(CPK))
+heart_data$Ejection.Fraction_group <- cut(Ejection.Fraction, quantile(Ejection.Fraction), include.lowest = TRUE)
+heart_data$Sodium_group <- cut(Sodium, quantile(Sodium), include.lowest = TRUE)
+heart_data$Creatinine_group <- cut(Creatinine, quantile(Creatinine), include.lowest = TRUE)
+heart_data$Pletelets_group <- cut(Pletelets, quantile(Pletelets), include.lowest = TRUE)
+heart_data$CPK_group <- cut(CPK, quantile(CPK), include.lowest = TRUE)
+# SOLVED: 'include.lowest = TRUE' was added as otherwise we get receive some NAs 
+# if the value of the variable is equal to the lower boundary of the interval.
+# To compare, see 'summary(heart_data)' without this option
 
 detach(heart_data)
 attach(heart_data)
@@ -44,15 +46,22 @@ chisq.test(table(Event, Smoking), correct = FALSE)
 PercTable(Event, Diabetes, rfrq="001", margins = c(1,2))
 chisq.test(table(Event, Diabetes), correct = FALSE)
 
+PercTable(Event, Diabetes, rfrq="001", margins = c(1,2))
+chisq.test(table(Event, BP), correct = FALSE)
+
 PercTable(Event, Anaemia, rfrq="001", margins = c(1,2)) 
 chisq.test(table(Event, Anaemia), correct = FALSE)
+# Conclusion: No association between any of the variables and the patient's 
+# death; lowest p_value for BP (blood pressure)
 
 hist(Age, breaks = 15, freq = F)
+# Conclusion: Age is not normally distributed
 
 rate <- sum(Event==1) / sum(TIME) * 100 
 rate 
 
 summary(heart_data)
+# Conclusion: 32% of the patients died; follow-up time is between 4 and 285 days
 
 # Kaplan-Meier estimator
 surv_obj <- Surv(TIME, Event) 
@@ -79,20 +88,23 @@ ggsurvplot(survfit(surv_obj~Smoking,), conf.int = T, xlab = "Days", ylab = "Over
 ggsurvplot(survfit(surv_obj~Diabetes,), conf.int = T, xlab = "Days", ylab = "Overall survival probability", data = heart_data)
 ggsurvplot(survfit(surv_obj~BP,), conf.int = T, xlab = "Days", ylab = "Overall survival probability", data = heart_data)
 ggsurvplot(survfit(surv_obj~Anaemia,), conf.int = T, xlab = "Days", ylab = "Overall survival probability", data = heart_data)
+# Conclusion: Already here we can see that BP and Anaemia have well separated 
+# survival curves, which means that there might be an effect of these variables
+# on the survival probability
 
 ggsurvplot(survfit(surv_obj~Age_group,), conf.int = T, xlab = "Days", ylab = "Overall survival probability", data = heart_data)
-ggsurvplot(survfit(surv_obj~Ejection.Fraction_group,), conf.int = T, xlab = "Days", ylab = "Overall survival probability", data = heart_data) # seems time dependend 
-ggsurvplot(survfit(surv_obj~Sodium_group,), conf.int = T, xlab = "Days", ylab = "Overall survival probability", data = heart_data) # seems partially time dependend 
+ggsurvplot(survfit(surv_obj~Ejection.Fraction_group,), conf.int = T, xlab = "Days", ylab = "Overall survival probability", data = heart_data) # seems time dependent 
+ggsurvplot(survfit(surv_obj~Sodium_group,), conf.int = T, xlab = "Days", ylab = "Overall survival probability", data = heart_data) # seems partially time dependent 
 ggsurvplot(survfit(surv_obj~Creatinine_group,), conf.int = T, xlab = "Days", ylab = "Overall survival probability", data = heart_data)
 ggsurvplot(survfit(surv_obj~Pletelets_group,), conf.int = T, xlab = "Days", ylab = "Overall survival probability", data = heart_data) # seems not important
 ggsurvplot(survfit(surv_obj~CPK_group,), conf.int = T, xlab = "Days", ylab = "Overall survival probability", data = heart_data) # seems not important 
 
 # Cloglog visual for PH-assumption  
-# FIXME: Legend location 
+# SOLVED: Legend location (removed legend box with 'bty' argument)
 for(i in c(3:7, (ncol(heart_data) - 5):ncol(heart_data))){
     # dev.new()
     plot(survfit(surv_obj~heart_data[,i]), fun="cloglog", yscale=-1, col=1:nlevels(heart_data[,i]), xlab="Days", ylab="Estimated -log(-log S(t))")
-    legend("topright", title= colnames(heart_data)[i], legend = levels(heart_data[,i]), col=1:nlevels(heart_data[,i]), lty=1)
+    legend("topright", bty = "n", title= colnames(heart_data)[i], legend = levels(heart_data[,i]), col=1:nlevels(heart_data[,i]), lty=1)
 }
 
 # SOLVED: Add grouped variables in both tests -> Or we leave it as it is
@@ -262,7 +274,6 @@ AIC(weibull_model, exp_model, lognormal_model)
 
 # Compare models using BIC
 BIC(weibull_model, exp_model, lognormal_model)
-
 
 # Select the model with the lowest AIC
 best_model <- exp_model
