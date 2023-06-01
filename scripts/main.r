@@ -28,13 +28,12 @@ heart_data$Sodium_group <- cut(Sodium, quantile(Sodium), include.lowest = TRUE)
 heart_data$Creatinine_group <- cut(Creatinine, quantile(Creatinine), include.lowest = TRUE)
 heart_data$Pletelets_group <- cut(Pletelets, quantile(Pletelets), include.lowest = TRUE)
 heart_data$CPK_group <- cut(CPK, quantile(CPK), include.lowest = TRUE)
-# SOLVED: 'include.lowest = TRUE' was added as otherwise we get receive some NAs 
-# if the value of the variable is equal to the lower boundary of the interval.
-# To compare, see 'summary(heart_data)' without this option
+# SOLVED: 'include.lowest = TRUE' was added as otherwise we get some NAs if the 
+# value of the variable is equal to the lower boundary of the interval. To 
+# compare, see 'summary(heart_data)' after changing the data without this option
 
 detach(heart_data)
 attach(heart_data)
-
 
 # EXPLORATORY ANALYSIS #### 
 PercTable(Event, Gender, rfrq="001", margins = c(1,2))
@@ -61,7 +60,20 @@ rate <- sum(Event==1) / sum(TIME) * 100
 rate 
 
 summary(heart_data)
-# Conclusion: 32% of the patients died; follow-up time is between 4 and 285 days
+# Conclusion: 
+# - Event: 32% of the patients died; 
+# - TIME: follow-up time is between 4 and 285 days;
+# - Gender: 194 men (= 1) / 105 women (= 0)
+# - Smoking: 96 yes (= 1) / 203 no (= 0)
+# - Diabetes: 125 yes (= 1) / 174 no (= 0)
+# - BP: 105 yes (= 1) / 194 no (= 0)
+# - Anaemia: patients with haematocrit < 36 (= 1) / >= 36 (= 0)
+# - Age: average = 60.83
+# - Ejection.Fraction: average = 38.08
+# - Sodium: average = 136.6
+# - Creatinine: average = 1.394
+# - Pletelets: average = 263358
+# - CPK: average = 581.8
 
 # Kaplan-Meier estimator
 surv_obj <- Surv(TIME, Event) 
@@ -70,8 +82,11 @@ names(result_simple)
 summary(result_simple)
 
 plot(result_simple)
+
+jpeg("../images/surv_curve_overall.jpeg", quality = 75)
 ggsurvplot(result_simple, xlab = "Days", ylab = "Overall survival probability",
             data = heart_data, legend = "none")
+dev.off()
 
 # Additional estimates ####
 # Cumulative hazard 
@@ -86,26 +101,49 @@ plot(result_simple_na)
 ggsurvplot(survfit(surv_obj~Gender,), conf.int = T, xlab = "Days", ylab = "Overall survival probability", data = heart_data)
 ggsurvplot(survfit(surv_obj~Smoking,), conf.int = T, xlab = "Days", ylab = "Overall survival probability", data = heart_data)
 ggsurvplot(survfit(surv_obj~Diabetes,), conf.int = T, xlab = "Days", ylab = "Overall survival probability", data = heart_data)
+
+jpeg("../images/surv_curve_BP.jpeg", quality = 75)
 ggsurvplot(survfit(surv_obj~BP,), conf.int = T, xlab = "Days", ylab = "Overall survival probability", data = heart_data)
+dev.off()
+
+jpeg("../images/surv_curve_Anaemia.jpeg", quality = 75)
 ggsurvplot(survfit(surv_obj~Anaemia,), conf.int = T, xlab = "Days", ylab = "Overall survival probability", data = heart_data)
+dev.off()
+
 # Conclusion: Already here we can see that BP and Anaemia have well separated 
-# survival curves, which means that there might be an effect of these variables
-# on the survival probability
+# survival curves, which means that there might be a univariate effect of these 
+# variables on the survival probability
 
 ggsurvplot(survfit(surv_obj~Age_group,), conf.int = T, xlab = "Days", ylab = "Overall survival probability", data = heart_data)
 ggsurvplot(survfit(surv_obj~Ejection.Fraction_group,), conf.int = T, xlab = "Days", ylab = "Overall survival probability", data = heart_data) # seems time dependent 
 ggsurvplot(survfit(surv_obj~Sodium_group,), conf.int = T, xlab = "Days", ylab = "Overall survival probability", data = heart_data) # seems partially time dependent 
+
+jpeg("../images/surv_curve_Creatinine_group.jpeg", quality = 75)
 ggsurvplot(survfit(surv_obj~Creatinine_group,), conf.int = T, xlab = "Days", ylab = "Overall survival probability", data = heart_data)
+dev.off()
+
 ggsurvplot(survfit(surv_obj~Pletelets_group,), conf.int = T, xlab = "Days", ylab = "Overall survival probability", data = heart_data) # seems not important
 ggsurvplot(survfit(surv_obj~CPK_group,), conf.int = T, xlab = "Days", ylab = "Overall survival probability", data = heart_data) # seems not important 
+# Conclusion: No clear univariate effect for Pletelets and CPK. For all the 
+# other variables, we have at least one level with a clearly separated survival 
+# curve. For Creatinine, we could consider merging the two groups in the middle
+# [0.9, 1.1] and [1.1, 1.4]
 
 # Cloglog visual for PH-assumption  
 # SOLVED: Legend location (removed legend box with 'bty' argument)
 for(i in c(3:7, (ncol(heart_data) - 5):ncol(heart_data))){
-    # dev.new()
+    temp_name = colnames(heart_data)[i]
+    file_path = paste("../images/cloglog_transform_", temp_name, ".jpeg")
+    jpeg(file_path, quality = 75)
     plot(survfit(surv_obj~heart_data[,i]), fun="cloglog", yscale=-1, col=1:nlevels(heart_data[,i]), xlab="Days", ylab="Estimated -log(-log S(t))")
     legend("topright", bty = "n", title= colnames(heart_data)[i], legend = levels(heart_data[,i]), col=1:nlevels(heart_data[,i]), lty=1)
+    dev.off()
 }
+# Conclusion: PH may
+# - stand for: BP, Anaemia, Creatinine_group (borderline case: Again, the two
+# groups in the middle could be merged)
+# - not stand for: Gender, Smoking, Diabetes, Age_group, Ejection.Fraction_group
+# Sodium_group, Pletelets_group, CPK_group
 
 # SOLVED: Add grouped variables in both tests -> Or we leave it as it is
 # Logrank test ####
