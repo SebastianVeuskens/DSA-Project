@@ -133,7 +133,7 @@ ggsurvplot(survfit(surv_obj~CPK_group,), conf.int = T, xlab = "Days", ylab = "Ov
 # SOLVED: Legend location (removed legend box with 'bty' argument)
 for(i in c(3:7, (ncol(heart_data) - 5):ncol(heart_data))){
     temp_name = colnames(heart_data)[i]
-    file_path = paste("../images/cloglog_transform_", temp_name, ".jpeg")
+    file_path = paste("../images/cloglog_transform_", temp_name, ".jpeg", sep = '')
     jpeg(file_path, quality = 75)
     plot(survfit(surv_obj~heart_data[,i]), fun="cloglog", yscale=-1, col=1:nlevels(heart_data[,i]), xlab="Days", ylab="Estimated -log(-log S(t))")
     legend("topright", bty = "n", title= colnames(heart_data)[i], legend = levels(heart_data[,i]), col=1:nlevels(heart_data[,i]), lty=1)
