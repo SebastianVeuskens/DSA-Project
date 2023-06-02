@@ -1,5 +1,6 @@
 # Sebastian Veuskens, Jose Gabriel Escarraman, Desmond Reynolds, Max Schlake
 
+
 # 1) SETUP ####
 rm(list=ls())
 
@@ -10,6 +11,7 @@ library(rstudioapi)
 library(DescTools)
 library(survminer)
 library(mfp)
+library(flexsurv)
 
 # Load data
 setwd(file_path <- dirname(rstudioapi::getSourceEditorContext()$path))
@@ -47,6 +49,7 @@ heart_data$CPK_group <- cut(CPK, quantile(CPK), include.lowest = TRUE)
 
 detach(heart_data)
 attach(heart_data)
+
 
 # 2) EXPLORATORY ANALYSIS #### 
 ## 2.1) Chi-Squared tests and histograms ####
@@ -110,6 +113,7 @@ plot(simple_cumhaz, type="l")
 # Fleming-Harrington (Nelson-Aalen) estimator 
 result_simple_na <- survfit(Surv(TIME, Event) ~ 1, conf.type = "log-log") 
 plot(result_simple_na) 
+
 
 # 3.) UNIVARIATE ANALYSIS #### 
 ## 3.1) Survival curves ####
@@ -197,8 +201,10 @@ survdiff(surv_obj~Pletelets_group, rho = 1)
 survdiff(surv_obj~CPK_group, rho = 1)
 
 ####### COMMENT
-# All Covariates are not significant except BP, although Anaemia shows aberrant 
-# behaviour that is almost significant 
+# All covariates are not significant except BP, although Anaemia shows aberrant 
+# behaviour that is almost significant --> I think we should mention all 
+# variables here (see the table in the presentation for logrank and wilcoxon 
+# test)
 
 ## 3.4) KM versus COX fit #### 
 # SOLVED: We could add some more variables with the same analysis here -> But I 
@@ -230,7 +236,9 @@ dev.off()
 # The Cox model seems to fit the KM estimate well for the first 3 groups.
 # However, there is under- and overstimation for the last (blue) group
 
+
 # 4.) MULTIVARIATE COX MODELS #### 
+## 4.1) Base model: cox_all ####
 cox_all <- coxph((surv_obj ~ Age + Ejection.Fraction + Sodium + 
                     Creatinine + Pletelets + CPK + Gender + 
                     Smoking + Diabetes + BP + Anaemia), method = "breslow") # breslow is Wilcoxon test
@@ -242,7 +250,7 @@ dev.off()
 
 ####### COMMENT
 # Significant risk factors: Age, Creatinine, BP, Anaemia
-# Significant protective factors: Ejection.Fraction,
+# Significant protective factors: Ejection.Fraction
 # Borderline cases: Sodium, CPK 
 
 jpeg("../images/cph_model.jpeg", quality = 75)
@@ -250,11 +258,13 @@ plot(survfit(cox_all), main = "cph model", xlab="Days")
 lines(result_simple, col="grey")
 dev.off()
 
+## 4.2) Reduced model: cox_reduced ####
 update(cox_all, .~. - Pletelets)
 update(cox_all, .~. - Pletelets - Smoking)
 update(cox_all, .~. - Pletelets - Smoking - Diabetes)
 update(cox_all, .~. - Pletelets - Smoking - Diabetes - Gender)
 
+## 4.3) Testing the PH assumption for the reduced model ####
 cox_reduced <- update(cox_all, .~. - Pletelets - Smoking - Diabetes - Gender)
 
 # Checking: H0 = PH assumption holds for all covariates
@@ -274,8 +284,12 @@ test_ph_reduced4
 # inconsistent behaviour for the PH assumption under 'identity' and 'km' 
 # transformations
 
-for (i in 1:length(test_ph_reduced)) {
-    plot(test_ph_reduced[i])
+for (i in 1:length(test_ph_reduced1)) {
+  temp_name = rownames(test_ph_reduced1$table)[i]
+  file_path = paste("../images/schoenfeld_res_identity_", temp_name, ".jpeg", sep = '')
+  jpeg(file_path, quality = 75)  
+  plot(test_ph_reduced1[i])
+  dev.off()
 }
 ####### COMMENT
 # Age declines at the end
@@ -292,20 +306,30 @@ test_ph_reduced
 # Only Ejection.Fraction shows inconsistent behaviour for the ph assumption, but 
 # it is not significant anymore 
 
-for (i in 1:length(test_ph_reduced)) {
-    plot(test_ph_reduced[i])
+for (i in 1:length(test_ph_reduced3)) {
+    plot(test_ph_reduced3[i])
 }
 
-# PROBLEM: They all look pretty non-constant..
-
-# COX model with time varying coefficients  
+## 4.4) Cox model with time varying coefficients  ####
 # SOLVED: Which variables should we include here? -> All, but only 
 # Ejection.Fraction shows changing behaviour over time 
-cox_time <- coxph(surv_obj ~ Age + Gender + Smoking + Diabetes + BP + Anaemia +tt(Ejection.Fraction), method = "breslow", data = heart_data, tt = function(x, t, ...) x * t)
+cox_time_id <- coxph(surv_obj ~ Age + Gender + Smoking + Diabetes + BP 
+                  + Anaemia + tt(Ejection.Fraction), method = "breslow", 
+                  data = heart_data, tt = function(x, t, ...) x * t)
+cox_time_id 
+
+cox_time <- coxph(surv_obj ~ Age + Gender + Smoking + Diabetes + BP 
+                  + Anaemia + tt(Ejection.Fraction), method = "breslow", 
+                  data = heart_data, tt = function(x, t, ...) x * log(t))
 cox_time 
 
-cox_time <- coxph(surv_obj ~ Age + Gender + Smoking + Diabetes + BP + Anaemia +tt(Ejection.Fraction), method = "breslow", data = heart_data, tt = function(x, t, ...) x * log(t))
-cox_time 
+# # ALT: Shouldn't we start with all variables here?
+# cox_time = coxph(surv_obj ~ Age + Sodium + Creatinine + Pletelets + CPK + Gender 
+#                  + Smoking + Diabetes + BP + Anaemia + tt(Ejection.Fraction), 
+#                  method = "breslow", data = heart_data, 
+#                  tt = function(x, t, ...) x * log(t))
+# 
+# cox_time
 
 # Reduce time-dependent model #### 
 update(cox_time, .~. - Smoking)
@@ -315,67 +339,107 @@ update(cox_time, .~. - Smoking - Diabetes - Gender - Anaemia)
 
 cox_time_reduced <- update(cox_time, .~. - Smoking - Diabetes - Gender - Anaemia)
 
-# Test linearity ####
+# # ALT: Reduce time-dependent model #### (when starting with all variables)
+# update(cox_time, .~. - Smoking)
+# update(cox_time, .~. - Smoking - Pletelets)
+# update(cox_time, .~. - Smoking - Pletelets - Diabetes)
+# update(cox_time, .~. - Smoking - Pletelets - Diabetes - Gender)
+# update(cox_time, .~. - Smoking - Pletelets - Diabetes - Gender - Sodium)
+# update(cox_time, .~. - Smoking - Pletelets - Diabetes - Gender - Sodium - Anaemia)
+# 
+# cox_time_reduced <- update(cox_time, .~. - Smoking - Pletelets - Diabetes - Gender - Sodium - Anaemia)
 
-# Martingale residuals 
+
+# 5.) TEST LINEARITY ####
+
+## 5.1) Martingale residuals ####
 # TODO: They seem all quite non-linear, use fixes as described in lecture 5.5 
 # SOLVE: Using fractional polynomials
-mart_res_reduced <- residuals(cox_reduced, type = "martingale") 
-scatter.smooth(mart_res_reduced ~ Age)
-scatter.smooth(mart_res_reduced ~ Ejection.Fraction)
-scatter.smooth(mart_res_reduced ~ Sodium)
-scatter.smooth(mart_res_reduced ~ Creatinine)
-scatter.smooth(mart_res_reduced ~ CPK)
+jpeg("../images/martingale_res_grid_plot.jpeg", quality = 75, width = 1200, height = 600)
+par(mfrow = c(2, 3), mar = c(4, 4, 2, 1))
+mart_res_reduced <- residuals(cox_reduced, type = "martingale")
+cex.axis = 1.2
+scatter.smooth(mart_res_reduced ~ Age, xlab = "Age", cex.lab = cex.axis)
+scatter.smooth(mart_res_reduced ~ Ejection.Fraction, xlab = "Ejection Fraction", cex.lab = cex.axis)
+scatter.smooth(mart_res_reduced ~ Sodium, xlab = "Sodium", cex.lab = cex.axis)
+scatter.smooth(mart_res_reduced ~ Creatinine, xlab = "Creatinine", cex.lab = cex.axis)
+scatter.smooth(mart_res_reduced ~ CPK, xlab = "CPK", cex.lab = cex.axis)
+dev.off()
 
-#### Deviance residuals (Can help to identify outliers (subjects with poor fit))
+## 5.2) Deviance residuals #### 
+# (Can help to identify outliers (subjects with poor fit))
 ### Ejection.Fraction, Sodium and Creatine have a strange behaviour
 
+jpeg("../images/deviance_res_grid_plot.jpeg", quality = 75, width = 1200, height = 600)
+par(mfrow = c(2, 3), mar = c(4, 4, 2, 1))
+dev_res_reduced <- residuals(cox_reduced, type = "deviance")
+cex.axis = 1.2
+scatter.smooth(dev_res_reduced ~ Age, xlab = "Age", cex.lab = cex.axis)
+scatter.smooth(dev_res_reduced ~ Ejection.Fraction, xlab = "Ejection Fraction", cex.lab = cex.axis)
+scatter.smooth(dev_res_reduced ~ Sodium, xlab = "Sodium", cex.lab = cex.axis)
+scatter.smooth(dev_res_reduced ~ Creatinine, xlab = "Creatinine", cex.lab = cex.axis)
+scatter.smooth(dev_res_reduced ~ CPK, xlab = "CPK", cex.lab = cex.axis)
+dev.off()
+
+jpeg("../images/dev_res_vs_lin_pred_reduced.jpeg", quality = 75, width = 900, height = 450)
 dev_res_reduced <- residuals(cox_reduced, type = "deviance") 
-s <- cox_all_mfp2$linear.predictors
-plot(s,dev_res_reduced)
+lin_pred_reduced <- cox_reduced$linear.predictors
+plot(lin_pred_reduced, dev_res_reduced)
 abline(h=2, lty=3)
+abline(h=-2, lty=3)
+dev.off()
 
-###Solving non-linearity in Age, Ejection.Fraction,Sodium, Creatinine and CPK 
+summary(dev_res_reduced) 
+
+####### COMMENT
+# We do not seem to have any outliers, as all deviance residuals are < 3 in 
+# absolute terms (note: deviance residuals are standard normal). The mean is 
+# close to zero.
+# However the residuals are not evenly scattered and we are seeing a slightly 
+# decreasing trend. Also, we can recognize two clusters in the data.
+
+## 5.3) Fractional Polynomials ####
+# Solving non-linearity in Age, Ejection.Fraction, Sodium, Creatinine and CPK 
 # using Fractional polynomials:
+
+cox_all_mfp = mfp(surv_obj ~ fp(Age) + fp(Ejection.Fraction) + fp (Sodium) 
+                 + fp(Creatinine) + fp(CPK) + Gender + Smoking + Diabetes + BP 
+                 + Anaemia, family=cox, method="breslow",verbose=T, select=1, 
+                 alpha=0.05, data=heart_data)
+cox_all_mfp
+
+####### COMMENT
 # The results tells that the variables Ejection.Fraction should be added to the 
-# model with a negative power of -2 
-# and the variable Creatinine with a negative power of -1,
-# the other variables are okay with just the linear form
-
-cox_all_mfp2=mfp(surv_obj~ fp(Age)+fp(Ejection.Fraction)+fp(Sodium)+fp(Creatinine)+fp(CPK)+ Gender + Smoking + Diabetes + BP + Anaemia, 
-                 family=cox, method="breslow",verbose=T, select=1, alpha=0.05, data=heart_data)
+# model with a negative power of -2 and the variable Creatinine with a negative 
+# power of -1, the other variables are okay with just the linear form.
 
 
-
-
-
-
-
-
-
-# Compare models and choose best one #### 
+# 6) COMPARE THE MODELS AND CHOOSE THE BEST #### 
 
 # Loglikelihood
 log_1 <- cox_reduced$loglik 
-log_2 <- cox_time_reduced$loglik 
+log_2 <- cox_time_reduced$loglik
+log_3 <- cox_all_mfp2$loglik
 
 # Likelihood ratio test statistics
 -2*diff(log_1)
--2*diff(log_2) 
+-2*diff(log_2)
+-2*diff(log_3)
 
 
-######classical Parametric models:
-#########################################################
-###TODO: I just try with classicals Weibull, Exp and log-normal models. I dont know if we should try with others
-### TODO: describe the hazard fuction of the selected model
-##I used AIC to compare
-## Exp has the lowest AIC
+# 7.) CLASSICAL PARAMETRIC MODELS ####
+
+# TODO: I just try with classicals Weibull, Exp and log-normal models. I dont know if we should try with others
+# TODO: describe the hazard function of the selected model
+# I used AIC to compare
+# Exp has the lowest AIC
 # install flexsurv package
 
 # Fit Weibull model
 weibull_model <- flexsurvreg(surv_obj ~ Age + Ejection.Fraction + Sodium + Creatinine + Pletelets + CPK + Gender + Smoking + Diabetes + BP + Anaemia, data = heart_data, dist = "weibullPH")
 weibull_model
 plot(weibull_model,type="hazard")
+
 # Fit exponential model
 exp_model <- flexsurvreg(surv_obj ~ Age + Ejection.Fraction + Sodium + Creatinine + Pletelets + CPK + Gender + Smoking + Diabetes + BP + Anaemia, data = heart_data, dist = "exponential")
 exp_model
