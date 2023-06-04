@@ -33,14 +33,6 @@ heart_data$Ejection.Fraction_group <- cut(Ejection.Fraction, quantile(Ejection.F
 heart_data$Sodium_group <- cut(Sodium, quantile(Sodium), include.lowest = TRUE)
 heart_data$Creatinine_group <- cut(Creatinine, quantile(Creatinine), include.lowest = TRUE)
 
-# For Creatinine, a 3-way split could work better (see below)
-# heart_data$Creatinine_group3 <- cut(
-#  Creatinine,
-#  breaks = quantile(Creatinine, probs = c(0, 1/3, 2/3, 1)),
-#  include.lowest = TRUE,
-#  labels = c("Low", "Medium", "High")
-# )
-
 heart_data$Pletelets_group <- cut(Pletelets, quantile(Pletelets), include.lowest = TRUE)
 heart_data$CPK_group <- cut(CPK, quantile(CPK), include.lowest = TRUE)
 # SOLVED: 'include.lowest = TRUE' was added as otherwise we get some NAs if the 
@@ -117,8 +109,14 @@ plot(result_simple_na)
 
 # 3.) UNIVARIATE ANALYSIS #### 
 ## 3.1) Survival curves ####
+jpeg("../images/surv_curve_Gender.jpeg", quality = 75)
 ggsurvplot(survfit(surv_obj~Gender,), conf.int = T, xlab = "Days", ylab = "Overall survival probability", data = heart_data)
+dev.off()
+
+jpeg("../images/surv_curve_Smoking.jpeg", quality = 75)
 ggsurvplot(survfit(surv_obj~Smoking,), conf.int = T, xlab = "Days", ylab = "Overall survival probability", data = heart_data)
+dev.off()
+
 ggsurvplot(survfit(surv_obj~Diabetes,), conf.int = T, xlab = "Days", ylab = "Overall survival probability", data = heart_data)
 
 jpeg("../images/surv_curve_BP.jpeg", quality = 75)
@@ -141,13 +139,17 @@ jpeg("../images/surv_curve_Creatinine_group.jpeg", quality = 75)
 ggsurvplot(survfit(surv_obj~Creatinine_group,), conf.int = T, xlab = "Days", ylab = "Overall survival probability", data = heart_data, legend = 'top')
 dev.off()
 
+jpeg("../images/surv_curve_Pletelets.jpeg", quality = 75)
 ggsurvplot(survfit(surv_obj~Pletelets_group,), conf.int = T, xlab = "Days", ylab = "Overall survival probability", data = heart_data) # seems not important
+dev.off()
+
 ggsurvplot(survfit(surv_obj~CPK_group,), conf.int = T, xlab = "Days", ylab = "Overall survival probability", data = heart_data) # seems not important 
 ####### COMMENT
 # No clear univariate effect for Pletelets and CPK. For all the other variables, 
 # we have at least one level with a clearly separated survival curve. For 
 # Creatinine, we could consider merging the two groups in the middle, 
 # ([0.9, 1.1] and [1.1, 1.4]).
+# SOLVED: We leave Creatinine with 4 levels.
 
 ## 3.2) Cloglog visual for PH-assumption ####  
 # SOLVED: Legend location (removed legend box with 'bty' argument)
@@ -162,8 +164,7 @@ for(i in c(3:7, (ncol(heart_data) - 5):ncol(heart_data))){
 
 ####### COMMENT
 # PH may
-# - stand for: BP, Anaemia, Creatinine_group (borderline case: Again, the two
-# groups in the middle could be merged)
+# - stand for: BP, Anaemia, Creatinine_group
 # - not stand for: Gender, Smoking, Diabetes, Age_group, Ejection.Fraction_group
 # Sodium_group, Pletelets_group, CPK_group
 
@@ -200,12 +201,6 @@ survdiff(surv_obj~Creatinine_group, rho = 1) # significant
 survdiff(surv_obj~Pletelets_group, rho = 1)
 survdiff(surv_obj~CPK_group, rho = 1)
 
-####### COMMENT
-# All covariates are not significant except BP, although Anaemia shows aberrant 
-# behaviour that is almost significant --> I think we should mention all 
-# variables here (see the table in the presentation for logrank and wilcoxon 
-# test)
-
 ## 3.4) KM versus COX fit #### 
 # SOLVED: We could add some more variables with the same analysis here -> But I 
 # think it is enough this way 
@@ -236,6 +231,23 @@ dev.off()
 # The Cox model seems to fit the KM estimate well for the first 3 groups.
 # However, there is under- and overstimation for the last (blue) group
 
+jpeg("../images/KM_vs_Cox_CPK_group.jpeg", quality = 75)
+plot(survfit(surv_obj ~ CPK_group, data=heart_data), col=1:nlevels(CPK_group)) # KM plot
+lines(survfit(coxph(surv_obj ~ CPK_group, data=heart_data), newdata=data.frame(CPK_group=levels(heart_data$CPK_group),se.fit=F)), col=1:nlevels(CPK_group), lty=2) # Cox predicted
+legend("bottomleft", title= "CPK_group status", legend = levels(CPK_group), col=1:nlevels(CPK_group), lty=1)
+dev.off()
+
+jpeg("../images/KM_vs_Cox_Pletelets_group.jpeg", quality = 75)
+plot(survfit(surv_obj ~ Pletelets_group, data=heart_data), col=1:nlevels(Pletelets_group)) # KM plot
+lines(survfit(coxph(surv_obj ~ Pletelets_group, data=heart_data), newdata=data.frame(Pletelets_group=levels(heart_data$Pletelets_group),se.fit=F)), col=1:nlevels(Pletelets_group), lty=2) # Cox predicted
+legend("bottomleft", title= "Pletelets_group status", legend = levels(Pletelets_group), col=1:nlevels(Pletelets_group), lty=1)
+dev.off()
+
+jpeg("../images/KM_vs_Cox_Ejection.Fraction_group.jpeg", quality = 75)
+plot(survfit(surv_obj ~ Ejection.Fraction_group, data=heart_data), col=1:nlevels(Ejection.Fraction_group)) # KM plot
+lines(survfit(coxph(surv_obj ~ Ejection.Fraction_group, data=heart_data), newdata=data.frame(Ejection.Fraction_group=levels(heart_data$Ejection.Fraction_group),se.fit=F)), col=1:nlevels(Ejection.Fraction_group), lty=2) # Cox predicted
+legend("bottomleft", title= "Ejection.Fraction_group status", legend = levels(Ejection.Fraction_group), col=1:nlevels(Ejection.Fraction_group), lty=1)
+dev.off()
 
 # 4.) MULTIVARIATE COX MODELS #### 
 ## 4.1) Base model: cox_all ####
@@ -254,8 +266,9 @@ dev.off()
 # Borderline cases: Sodium, CPK 
 
 jpeg("../images/cph_model.jpeg", quality = 75)
-plot(survfit(cox_all), main = "cph model", xlab="Days")
-lines(result_simple, col="grey")
+plot(survfit(cox_all), main = "cph model", xlab="Days", )
+lines(result_simple, col="green")
+legend("bottomleft", legend = c("Cox", "KM"), col = c("black", "green"), lty = c(1, 1))
 dev.off()
 
 ## 4.2) Reduced model: cox_reduced ####
@@ -300,54 +313,30 @@ for (i in 1:length(test_ph_reduced1)) {
 # BP shaped as wave 
 # Anaemia slump at beginning, otherwise straight 
 
-test_ph_reduced <- cox.zph(cox_reduced, transform="log", terms = F)
-test_ph_reduced 
-####### COMMENT
-# Only Ejection.Fraction shows inconsistent behaviour for the ph assumption, but 
-# it is not significant anymore 
-
-for (i in 1:length(test_ph_reduced3)) {
-    plot(test_ph_reduced3[i])
-}
 
 ## 4.4) Cox model with time varying coefficients  ####
 # SOLVED: Which variables should we include here? -> All, but only 
 # Ejection.Fraction shows changing behaviour over time 
-cox_time_id <- coxph(surv_obj ~ Age + Gender + Smoking + Diabetes + BP 
-                  + Anaemia + tt(Ejection.Fraction), method = "breslow", 
-                  data = heart_data, tt = function(x, t, ...) x * t)
-cox_time_id 
 
-cox_time <- coxph(surv_obj ~ Age + Gender + Smoking + Diabetes + BP 
-                  + Anaemia + tt(Ejection.Fraction), method = "breslow", 
-                  data = heart_data, tt = function(x, t, ...) x * log(t))
-cox_time 
+# Time dependent model
+cox_time = coxph(surv_obj ~ Age + Sodium + Creatinine + Pletelets + CPK + Gender
+                 + Ejection.Fraction + Smoking + Diabetes + BP + Anaemia 
+                 + tt(Ejection.Fraction), method = "breslow", data = heart_data,
+                 tt = function(x, t, ...) x * log(t))
 
-# # ALT: Shouldn't we start with all variables here?
-# cox_time = coxph(surv_obj ~ Age + Sodium + Creatinine + Pletelets + CPK + Gender 
-#                  + Smoking + Diabetes + BP + Anaemia + tt(Ejection.Fraction), 
-#                  method = "breslow", data = heart_data, 
-#                  tt = function(x, t, ...) x * log(t))
-# 
-# cox_time
+cox_time
 
-# Reduce time-dependent model #### 
+# Reduce time-dependent model
 update(cox_time, .~. - Smoking)
-update(cox_time, .~. - Smoking - Diabetes)
-update(cox_time, .~. - Smoking - Diabetes - Gender)
-update(cox_time, .~. - Smoking - Diabetes - Gender - Anaemia)
+update(cox_time, .~. - Smoking - Pletelets)
+update(cox_time, .~. - Smoking - Pletelets - Diabetes)
+update(cox_time, .~. - Smoking - Pletelets - Diabetes - Ejection.Fraction)
+update(cox_time, .~. - Smoking - Pletelets - Diabetes - Ejection.Fraction - Gender)
+update(cox_time, .~. - Smoking - Pletelets - Diabetes - Ejection.Fraction - Gender - Sodium)
+update(cox_time, .~. - Smoking - Pletelets - Diabetes - Ejection.Fraction - Gender - Sodium - Anaemia)
+update(cox_time, .~. - Smoking - Pletelets - Diabetes - Ejection.Fraction - Gender - Sodium - Anaemia - CPK)
 
-cox_time_reduced <- update(cox_time, .~. - Smoking - Diabetes - Gender - Anaemia)
-
-# # ALT: Reduce time-dependent model #### (when starting with all variables)
-# update(cox_time, .~. - Smoking)
-# update(cox_time, .~. - Smoking - Pletelets)
-# update(cox_time, .~. - Smoking - Pletelets - Diabetes)
-# update(cox_time, .~. - Smoking - Pletelets - Diabetes - Gender)
-# update(cox_time, .~. - Smoking - Pletelets - Diabetes - Gender - Sodium)
-# update(cox_time, .~. - Smoking - Pletelets - Diabetes - Gender - Sodium - Anaemia)
-# 
-# cox_time_reduced <- update(cox_time, .~. - Smoking - Pletelets - Diabetes - Gender - Sodium - Anaemia)
+cox_time_reduced <- update(cox_time, .~. - Smoking - Pletelets - Diabetes - Ejection.Fraction - Gender - Sodium - Anaemia - CPK)
 
 
 # 5.) TEST LINEARITY ####
@@ -416,49 +405,89 @@ cox_all_mfp
 
 # 6) COMPARE THE MODELS AND CHOOSE THE BEST #### 
 
-# Loglikelihood
-log_1 <- cox_reduced$loglik 
-log_2 <- cox_time_reduced$loglik
-log_3 <- cox_all_mfp2$loglik
+# # Loglikelihood
+# log_reduced <- cox_reduced$loglik 
+# log_time_reduced <- cox_time_reduced$loglik
+# log_all_mfp <- cox_all_mfp$loglik
+# 
+# # Likelihood ratio test statistics # -> should not be used to compare because 
+# # models are not nested
+# -2*diff(log_reduced)
+# -2*diff(log_time_reduced)
+# -2*diff(log_all_mfp)
 
-# Likelihood ratio test statistics
--2*diff(log_1)
--2*diff(log_2)
--2*diff(log_3)
+# AIC
+aic_reduced = AIC(cox_reduced)
+aic_time_reduced = AIC(cox_time_reduced)
+aic_all_mfp = AIC(cox_all_mfp)
 
 
 # 7.) CLASSICAL PARAMETRIC MODELS ####
 
-# TODO: I just try with classicals Weibull, Exp and log-normal models. I dont know if we should try with others
 # TODO: describe the hazard function of the selected model
-# I used AIC to compare
 # Exp has the lowest AIC
-# install flexsurv package
 
+## 7.1) PH models
 # Fit Weibull model
-weibull_model <- flexsurvreg(surv_obj ~ Age + Ejection.Fraction + Sodium + Creatinine + Pletelets + CPK + Gender + Smoking + Diabetes + BP + Anaemia, data = heart_data, dist = "weibullPH")
-weibull_model
-plot(weibull_model,type="hazard")
+weibullph_model <- flexsurvreg(surv_obj ~ Age + Ejection.Fraction + Sodium + Creatinine + Pletelets + CPK + Gender + Smoking + Diabetes + BP + Anaemia, 
+                               method = "Nelder-Mead", hessian = FALSE,
+                               data = heart_data, dist = "weibullPH")
+weibullph_model
+plot(weibullph_model,type="hazard")
 
 # Fit exponential model
-exp_model <- flexsurvreg(surv_obj ~ Age + Ejection.Fraction + Sodium + Creatinine + Pletelets + CPK + Gender + Smoking + Diabetes + BP + Anaemia, data = heart_data, dist = "exponential")
-exp_model
-plot(exp_model,type="hazard")
+expph_model <- flexsurvreg(surv_obj ~ Age + Ejection.Fraction + Sodium + Creatinine + Pletelets + CPK + Gender + Smoking + Diabetes + BP + Anaemia, data = heart_data,
+                           method = "Nelder-Mead", hessian = FALSE,
+                           # control = flexsurv:::control.flexsurvreg(btol=1e-6, stol=1e-6),
+                           ,dist = "exponential")
+expph_model
+plot(expph_model,type="hazard")
 
-# Fit log-normal model
-lognormal_model <- flexsurvreg(surv_obj ~ Age + Ejection.Fraction + Sodium + Creatinine + Pletelets + CPK + Gender + Smoking + Diabetes + BP + Anaemia, data = heart_data, dist = "lognormal")
-lognormal_model
-plot(lognormal_model,type="hazard")
 
-# Compare models using AIC
-AIC(weibull_model, exp_model, lognormal_model)
+# Fit GOMPERTZ model
+gompertzph_model <- flexsurvreg(surv_obj ~ Age + Ejection.Fraction + Sodium + Creatinine + Pletelets + CPK + Gender + Smoking + Diabetes + BP + Anaemia, 
+                                method = "Nelder-Mead", hessian = FALSE,
+                                data = heart_data, dist = "gompertz")
+gompertzph_model
+plot(gompertzph_model,type="hazard")
 
-# Compare models using BIC
-BIC(weibull_model, exp_model, lognormal_model)
+
+# 8.) Parametric models with only AFT parametrization ####
+
+# Fit log-normal model AFT
+lognormalaft_model<- flexsurvreg(surv_obj ~ Age + Ejection.Fraction + Sodium + Creatinine + Pletelets + CPK + Gender + Smoking + Diabetes + BP + Anaemia, 
+                                 method = "Nelder-Mead", hessian = FALSE,
+                                 data = heart_data, dist = "lnorm")
+lognormalaft_model
+plot(lognormalaft_model,type="hazard")
+
+# Fit Generalized gamma (stable) AFT
+gamaaft_model <- flexsurvreg(surv_obj ~ Age + Ejection.Fraction + Sodium + Creatinine + Pletelets + CPK + Gender + Smoking + Diabetes + BP + Anaemia, 
+                             method = "Nelder-Mead", hessian = FALSE,
+                             data = heart_data, dist = "gengamma")
+gamaaft_model
+plot(gamaaft_model,type="hazard")
+
+#	Fit Log-logistic AFT
+loglogisticaft_model <- flexsurvreg(surv_obj ~ Age + Ejection.Fraction + Sodium + Creatinine + Pletelets + CPK + Gender + Smoking + Diabetes + BP + Anaemia, 
+                                    method = "Nelder-Mead", hessian = FALSE,
+                                    data = heart_data, dist = "llogis")
+loglogisticaft_model
+plot(loglogisticaft_model,type="hazard")
+
+
+# 9.) Compare models using AIC and BIC ####
+AIC(expph_model,weibullph_model, gompertzph_model,lognormalaft_model,
+    gamaaft_model,loglogisticaft_model )
+BIC(expph_model,weibullph_model, gompertzph_model,lognormalaft_model,
+    gamaaft_model,loglogisticaft_model)
 
 # Select the model with the lowest AIC
-best_model <- exp_model
+#TODO: best model is expph_model, describe hazard fuction
 
-
+expph_model
+plot(expph_model)
+plot(expph_model,type="hazard")
+plot(expph_model,type="cumhaz")
 
 
