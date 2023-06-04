@@ -429,36 +429,75 @@ log_3 <- cox_all_mfp2$loglik
 
 # 7.) CLASSICAL PARAMETRIC MODELS ####
 
-# TODO: I just try with classicals Weibull, Exp and log-normal models. I dont know if we should try with others
 # TODO: describe the hazard function of the selected model
-# I used AIC to compare
 # Exp has the lowest AIC
-# install flexsurv package
+
+
 
 # Fit Weibull model
-weibull_model <- flexsurvreg(surv_obj ~ Age + Ejection.Fraction + Sodium + Creatinine + Pletelets + CPK + Gender + Smoking + Diabetes + BP + Anaemia, data = heart_data, dist = "weibullPH")
-weibull_model
-plot(weibull_model,type="hazard")
+weibullph_model <- flexsurvreg(surv_obj ~ Age + Ejection.Fraction + Sodium + Creatinine + Pletelets + CPK + Gender + Smoking + Diabetes + BP + Anaemia, 
+                             method = "Nelder-Mead", hessian = FALSE,
+                             data = S1Data, dist = "weibullPH")
+weibullph_model
+plot(weibull_modelph,type="hazard")
 
 # Fit exponential model
-exp_model <- flexsurvreg(surv_obj ~ Age + Ejection.Fraction + Sodium + Creatinine + Pletelets + CPK + Gender + Smoking + Diabetes + BP + Anaemia, data = heart_data, dist = "exponential")
-exp_model
-plot(exp_model,type="hazard")
 
-# Fit log-normal model
-lognormal_model <- flexsurvreg(surv_obj ~ Age + Ejection.Fraction + Sodium + Creatinine + Pletelets + CPK + Gender + Smoking + Diabetes + BP + Anaemia, data = heart_data, dist = "lognormal")
-lognormal_model
-plot(lognormal_model,type="hazard")
+expph_model <- flexsurvreg(surv_obj ~ Age + Ejection.Fraction + Sodium + Creatinine + Pletelets + CPK + Gender + Smoking + Diabetes + BP + Anaemia, data = heart_data,
+                         method = "Nelder-Mead", hessian = FALSE,
+                        # control = flexsurv:::control.flexsurvreg(btol=1e-6, stol=1e-6),
+                         ,dist = "exponential")
+expph_model
+plot(expph_model,type="hazard")
 
-# Compare models using AIC
-AIC(weibull_model, exp_model, lognormal_model)
 
-# Compare models using BIC
-BIC(weibull_model, exp_model, lognormal_model)
+# Fit GOMPERTZ model
+
+gompertzph_model <- flexsurvreg(surv_obj ~ Age + Ejection.Fraction + Sodium + Creatinine + Pletelets + CPK + Gender + Smoking + Diabetes + BP + Anaemia, 
+                              method = "Nelder-Mead", hessian = FALSE,
+                              data = heart_data, dist = "gompertz")
+gompertzph_model
+plot(gompertzph_model,type="hazard")
+
+## 8.) Parametric models with only AFT parametrization
+
+
+# Fit log-normal model AFT
+lognormalaft_model<- flexsurvreg(surv_obj ~ Age + Ejection.Fraction + Sodium + Creatinine + Pletelets + CPK + Gender + Smoking + Diabetes + BP + Anaemia, 
+                               method = "Nelder-Mead", hessian = FALSE,
+                               data = heart_data, dist = "lnorm")
+lognormalaft_model
+plot(lognormalaft_model,type="hazard")
+
+
+# Fit Generalized gamma (stable) AFT
+gamaaft_model <- flexsurvreg(surv_obj ~ Age + Ejection.Fraction + Sodium + Creatinine + Pletelets + CPK + Gender + Smoking + Diabetes + BP + Anaemia, 
+                        method = "Nelder-Mead", hessian = FALSE,
+                        data = heart_data, dist = "gengamma")
+
+gamaaft_model
+plot(gamaaft_model,type="hazard")
+
+#	Fit Log-logistic AFT
+loglogisticaft_model <- flexsurvreg(surv_obj ~ Age + Ejection.Fraction + Sodium + Creatinine + Pletelets + CPK + Gender + Smoking + Diabetes + BP + Anaemia, 
+                               method = "Nelder-Mead", hessian = FALSE,
+                               data = heart_data, dist = "llogis")
+
+loglogisticaft_model
+plot(loglogisticaft_model,type="hazard")
+
+## 9.) Compare models using AIC and BIC
+AIC(expph_model,weibullph_model, gompertz_model,lognormalaft_model,
+    gamaaft_model,loglogisticaft_model )
+BIC(expph_model,weibullph_model, gompertz_model,lognormalaft_model,
+    gamaaft_model,loglogisticaft_model)
 
 # Select the model with the lowest AIC
-best_model <- exp_model
+#TODO: best model is expph_model, describe hazard fuction
 
-
+expph_model
+plot(expph_model)
+plot(expph_model,type="hazard")
+plot(expph_model,type="cumhaz")
 
 
