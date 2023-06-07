@@ -370,10 +370,10 @@ scatter.smooth(dev_res_reduced ~ Creatinine, xlab = "Creatinine", cex.lab = cex.
 scatter.smooth(dev_res_reduced ~ CPK, xlab = "CPK", cex.lab = cex.axis)
 dev.off()
 
-jpeg("../images/dev_res_vs_lin_pred_reduced.jpeg", quality = 75, width = 900, height = 450)
+jpeg("../images/dev_res_vs_lin_pred_reduced.jpeg", quality = 75, width = 700, height = 450)
 dev_res_reduced <- residuals(cox_reduced, type = "deviance") 
 lin_pred_reduced <- cox_reduced$linear.predictors
-plot(lin_pred_reduced, dev_res_reduced)
+scatter.smooth(dev_res_reduced~lin_pred_reduced)
 abline(h=2, lty=3)
 abline(h=-2, lty=3)
 dev.off()
